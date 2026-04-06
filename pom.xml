@@ -12,13 +12,10 @@
 
   <name>Java Calculator</name>
 
-  <dependencies>
-    <!-- Updated safe dependency -->
-    <dependency>
-      <groupId>org.apache.commons</groupId>
-      <artifactId>commons-lang3</artifactId>
-      <version>3.18.0</version>
-    </dependency>
-  </dependencies>
-
+  <dependency>
+  <groupId>commons-collections</groupId>
+  <artifactId>commons-collections</artifactId>
+  <version>3.2.1</version>
+  </dependency>
+  
 </project>
