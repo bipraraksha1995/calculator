@@ -1,0 +1,79 @@
+name: Java Calculator CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-scan-test:
+    name: Build, Scan, and Run
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout the repository
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of SonarCloud analysis
+
+      # 2. Setup Java Environment
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # 3. Compile the Java Code
+      - name: Compile Application
+        run: |
+          mkdir -p bin
+          javac -d bin Main.java model/*.java service/*.java utils/*.java
+          echo "Compilation successful."
+
+      # 4. SonarCloud Scan (Code Quality & Security)
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}    # Generate this in SonarCloud
+        with:
+          args: >
+            -Dsonar.projectKey=YOUR_SONAR_PROJECT_KEY
+            -Dsonar.organization=YOUR_SONAR_ORG_KEY
+            -Dsonar.sources=.
+            -Dsonar.java.binaries=bin
+            -Dsonar.exclusions=bin/**
+
+      # 5. Snyk Scan (SAST / Static Code Analysis)
+      # Note: We use `snyk code test` because this is a raw Java project without a Maven/Gradle manifest
+      - name: Setup Snyk CLI
+        uses: snyk/actions/setup@master
+      - name: Snyk Code Scan
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}      # Generate this in Snyk
+        run: snyk code test
+        continue-on-error: true                      # Set to false if you want the pipeline to fail on vulnerabilities
+
+      # 6. Trivy Scan (Filesystem Vulnerability Scan)
+      - name: Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '1'                             # Fails the build if critical vulnerabilities are found
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+
+      # 7. Runner Deployment / Execution Test
+      - name: Test Execution in GitHub Runner
+        run: |
+          echo "Deploying and running the application in the runner..."
+          echo "Piping '5' (Exit command) into the application to verify it boots and closes cleanly."
+          
+          # This simulates a user typing "5" and pressing Enter
+          echo "5" | java -cp bin Main
+          
+          echo "Application executed and exited successfully!"
