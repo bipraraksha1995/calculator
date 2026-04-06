@@ -40,7 +40,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}    # Generate this in SonarCloud
         with:
           args: >
-            -Dsonar.projectKey=calculator
+            -Dsonar.projectKey=bipraraksha1995_calculator
             -Dsonar.organization=bipraraksha1995
             -Dsonar.sources=.
             -Dsonar.java.binaries=bin
