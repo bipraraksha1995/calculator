@@ -8,29 +8,29 @@ on:
 
 jobs:
   devsecops:
+    name: Build, Scan & Test
     runs-on: ubuntu-latest
 
     steps:
-    # 1. Checkout
+    # 1. Checkout Code
     - name: Checkout Code
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
     # 2. Setup Java
-    - name: Setup JDK
+    - name: Setup JDK 17
       uses: actions/setup-java@v4
       with:
         distribution: temurin
         java-version: 17
+        cache: maven
 
-    # 3. Build
-    - name: Compile
-      run: |
-        mkdir -p bin
-        javac -d bin Main.java model/*.java service/*.java utils/*.java
+    # 3. Build with Maven
+    - name: Build Application
+      run: mvn clean install -DskipTests
 
-    # 4. SonarCloud (SAST)
+    # 4. SonarCloud Scan (SAST)
     - name: SonarCloud Scan
       uses: SonarSource/sonarcloud-github-action@master
       env:
@@ -40,21 +40,22 @@ jobs:
         args: >
           -Dsonar.projectKey=bipraraksha1995_calculator
           -Dsonar.organization=bipraraksha1995
-          -Dsonar.sources=.
-          -Dsonar.java.binaries=bin
-          -Dsonar.exclusions=bin/**
+          -Dsonar.sources=src
+          -Dsonar.java.binaries=target
+          -Dsonar.exclusions=target/**
 
-    # 5. Snyk (SCA)
+    # 5. Setup Snyk
     - name: Setup Snyk
       uses: snyk/actions/setup@master
 
-    - name: Snyk Dependency Scan
+    # 6. Snyk Dependency Scan (SCA)
+    - name: Snyk Open Source Scan
       env:
         SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-      run: snyk test || true
+      run: snyk test --all-projects
 
-    # 6. Trivy Scan
-    - name: Trivy Scan
+    # 7. Trivy Filesystem Scan
+    - name: Trivy Scan (FS)
       uses: aquasecurity/trivy-action@master
       with:
         scan-type: fs
@@ -63,6 +64,7 @@ jobs:
         exit-code: 1
         severity: CRITICAL,HIGH
 
-    # 7. Run App
-    - name: Run Test
-      run: echo "5" | java -cp bin Main
+    # 8. Run Application Test
+    - name: Run Application
+      run: |
+        echo "5" | java -cp target/classes Main
