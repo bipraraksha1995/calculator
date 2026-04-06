@@ -54,7 +54,7 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}      # Generate this in Snyk
         run: snyk code test
-        continue-on-error: true                      # Set to false if you want the pipeline to fail on vulnerabilities
+        continue-on-error: false                      # Set to false if you want the pipeline to fail on vulnerabilities
 
       # 6. Trivy Scan (Filesystem Vulnerability Scan)
       - name: Trivy Vulnerability Scanner
