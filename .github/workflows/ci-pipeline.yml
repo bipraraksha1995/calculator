@@ -54,38 +54,26 @@ jobs:
 # 🔹 QA STAGE
 # =========================
   qa:
-    name: QA Stage (DAST + Security Validation)
-    runs-on: ubuntu-latest
-    needs: dev
-    if: startsWith(github.ref, 'refs/heads/qa-')
+   runs-on: ubuntu-latest
+   needs: dev
+   if: startsWith(github.ref, 'refs/heads/qa-')
 
-    steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
+   steps:
+   - uses: actions/checkout@v4
 
-    - name: Build & Run App
-      run: |
-        mkdir -p bin
-        javac -d bin Main.java model/*.java service/*.java utils/*.java
-        nohup java -cp bin Main > app.log 2>&1 &
-        sleep 20
-    - name: Start Dummy Server
-      run: |
-        python3 -m http.server 8080 &
-        sleep 10
-    - name: Check App Availability
-      run: |
-        curl -v http://localhost:8080 || true
-        cat app.log || true
+   - name: Start Server
+     run: |
+       python3 -m http.server 8080 &
+       sleep 15
 
-    # DAST - OWASP ZAP
-    - name: OWASP ZAP Scan
-      uses: zaproxy/action-baseline@v0.10.0
-      with:
-        target: 'http://127.0.0.1:8080'
-        fail_action: false
-        cmd_options: '-dir /tmp -r report.html -J report.json -w report.md'
+   - name: Verify Server
+     run: curl -I http://127.0.0.1:8080
 
+   - name: OWASP ZAP Scan
+     uses: zaproxy/action-full-scan@v0.10.0
+     with:
+      target: 'http://127.0.0.1:8080'
+      fail_action: false
 # =========================
 # 🔹 PROD STAGE
 # =========================
