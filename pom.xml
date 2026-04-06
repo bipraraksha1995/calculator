@@ -10,12 +10,24 @@
   <version>1.0</version>
   <packaging>jar</packaging>
 
-  <name>Java Calculator</name>
+  <name>Java Calculator DevSecOps Demo</name>
 
-  <dependency>
-  <groupId>commons-collections</groupId>
-  <artifactId>commons-collections</artifactId>
-  <version>3.2.1</version>
-  </dependency>
-  
+  <dependencies>
+
+    <!-- 🔴 CRITICAL Vulnerability (Deserialization exploit) -->
+    <dependency>
+      <groupId>commons-collections</groupId>
+      <artifactId>commons-collections</artifactId>
+      <version>3.2.1</version>
+    </dependency>
+
+    <!-- 🔴 HIGH Vulnerability (Known issue) -->
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-lang3</artifactId>
+      <version>3.12.0</version>
+    </dependency>
+
+  </dependencies>
+
 </project>
