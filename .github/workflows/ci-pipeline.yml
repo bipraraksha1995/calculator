@@ -1,77 +1,104 @@
-name: DevSecOps Java Pipeline
+name: DevSecOps Multi-Stage Pipeline
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "qa-*", "dev"]
   pull_request:
     branches: ["main"]
 
 jobs:
-  devsecops:
+
+# =========================
+# 🔹 DEV STAGE
+# =========================
+  dev:
+    name: Dev Stage (Build + SAST + SCA)
     runs-on: ubuntu-latest
 
     steps:
-    # 1. Checkout
     - name: Checkout Code
       uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
 
-    # 2. Setup Java
-    - name: Setup JDK 17
+    - name: Setup JDK
       uses: actions/setup-java@v4
       with:
         distribution: temurin
         java-version: 17
         cache: maven
 
-    # 3. Build (for Snyk dependency resolution)
-    - name: Build with Maven
+    - name: Build
       run: mvn clean install -DskipTests
 
-    # 4. SonarCloud Scan (Updated Action + Fixed Path)
-    - name: SonarCloud Scan
+    # SAST - Sonar
+    - name: Sonar Scan
       uses: SonarSource/sonarqube-scan-action@v5
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      with:
-        args: >
-          -Dsonar.projectKey=bipraraksha1995_calculator
-          -Dsonar.organization=bipraraksha1995
-          -Dsonar.sources=.
-          -Dsonar.java.binaries=target
-          -Dsonar.exclusions=target/**
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    # 5. Setup Snyk
+    # SCA - Snyk
     - name: Setup Snyk
       uses: snyk/actions/setup@master
 
-    # 6. Authenticate Snyk (IMPORTANT FIX)
-    - name: Authenticate Snyk
-      run: snyk auth ${{ secrets.SNYK_TOKEN }}
-
-    # 7. Snyk Test (SCA - shows vulnerabilities but doesn't break demo)
     - name: Snyk Test
       run: snyk test --severity-threshold=high || true
 
-    # 8. Snyk Monitor (Push results to dashboard)
-    - name: Snyk Monitor
-      run: snyk monitor --all-projects || true
+# =========================
+# 🔹 QA STAGE
+# =========================
+  qa:
+    name: QA Stage (DAST + Security Validation)
+    runs-on: ubuntu-latest
+    needs: dev
+    if: startsWith(github.ref, 'refs/heads/qa-')
 
-    # 9. Trivy Scan (Fail on real issues)
-    - name: Trivy Filesystem Scan
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Build & Run App
+      run: |
+        mkdir -p bin
+        javac -d bin Main.java model/*.java service/*.java utils/*.java
+        nohup java -cp bin Main &
+        sleep 20
+
+    # DAST - OWASP ZAP
+    - name: OWASP ZAP Scan
+      uses: zaproxy/action-baseline@v0.10.0
+      with:
+        target: 'http://localhost:8080'
+        fail_action: false
+
+# =========================
+# 🔹 PROD STAGE
+# =========================
+  prod:
+    name: Prod Stage (Release + Infra Scan)
+    runs-on: ubuntu-latest
+    needs: qa
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Build Final Artifact
+      run: mvn clean package
+
+    # Trivy Scan (Final Gate)
+    - name: Trivy Scan
       uses: aquasecurity/trivy-action@master
       with:
         scan-type: fs
         scan-ref: .
-        format: table
-        exit-code: 1
         severity: CRITICAL,HIGH
+        exit-code: 1
 
-    # 10. Compile & Run (since project not standard Maven layout)
-    - name: Compile & Run Application
+    # Optional: Nessus Trigger
+    - name: Nessus Scan (Infra)
       run: |
-        mkdir -p bin
-        javac -d bin Main.java model/*.java service/*.java utils/*.java
-        echo "5" | java -cp bin Main
+        curl -X POST "https://nessus-server:8834/scans" \
+        -H "X-ApiKeys: accessKey=${{ secrets.NESSUS_ACCESS }}; secretKey=${{ secrets.NESSUS_SECRET }}" \
+        -H "Content-Type: application/json" \
+        -d '{"uuid":"scan-template-id","settings":{"name":"Prod Scan","text_targets":"your-server-ip"}}'
