@@ -8,11 +8,10 @@ on:
 
 jobs:
   devsecops:
-    name: Build, Scan & Test
     runs-on: ubuntu-latest
 
     steps:
-    # 1. Checkout Code
+    # 1. Checkout
     - name: Checkout Code
       uses: actions/checkout@v4
       with:
@@ -26,13 +25,13 @@ jobs:
         java-version: 17
         cache: maven
 
-    # 3. Build with Maven
+    # 3. Build (Maven will still work even if files are in root)
     - name: Build Application
       run: mvn clean install -DskipTests
 
-    # 4. SonarCloud Scan (SAST)
+    # 4. SonarCloud Scan (FIXED)
     - name: SonarCloud Scan
-      uses: SonarSource/sonarcloud-github-action@master
+      uses: SonarSource/sonarqube-scan-action@v5
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -40,7 +39,7 @@ jobs:
         args: >
           -Dsonar.projectKey=bipraraksha1995_calculator
           -Dsonar.organization=bipraraksha1995
-          -Dsonar.sources=src
+          -Dsonar.sources=.
           -Dsonar.java.binaries=target
           -Dsonar.exclusions=target/**
 
@@ -48,14 +47,14 @@ jobs:
     - name: Setup Snyk
       uses: snyk/actions/setup@master
 
-    # 6. Snyk Dependency Scan (SCA)
-    - name: Snyk Open Source Scan
+    # 6. Snyk Scan (WORKS because pom.xml exists)
+    - name: Snyk Dependency Scan
       env:
         SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
       run: snyk test --all-projects
 
-    # 7. Trivy Filesystem Scan
-    - name: Trivy Scan (FS)
+    # 7. Trivy Scan
+    - name: Trivy Scan
       uses: aquasecurity/trivy-action@master
       with:
         scan-type: fs
@@ -64,7 +63,9 @@ jobs:
         exit-code: 1
         severity: CRITICAL,HIGH
 
-    # 8. Run Application Test
-    - name: Run Application
+    # 8. Run App (since no target/classes guaranteed)
+    - name: Compile & Run Manually
       run: |
-        echo "5" | java -cp target/classes Main
+        mkdir -p bin
+        javac -d bin Main.java model/*.java service/*.java utils/*.java
+        echo "5" | java -cp bin Main
