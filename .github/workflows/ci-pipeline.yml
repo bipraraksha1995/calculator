@@ -35,6 +35,13 @@ jobs:
       env:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+         args: >
+          -Dsonar.projectKey=bipraraksha1995_calculator
+          -Dsonar.organization=bipraraksha1995
+          -Dsonar.sources=.
+          -Dsonar.java.binaries=target
+          -Dsonar.exclusions=target/**
 
     # SCA - Snyk
     - name: Setup Snyk
