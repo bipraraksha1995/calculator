@@ -1,0 +1,29 @@
+package service;
+
+/**
+ * Core business logic layer for performing arithmetic calculations.
+ */
+public class CalculatorService {
+
+    public double add(double a, double b) {
+        return a + b;
+    }
+
+    public double subtract(double a, double b) {
+        return a - b;
+    }
+
+    public double multiply(double a, double b) {
+        return a * b;
+    }
+
+    /**
+     * Performs division and throws an exception if attempting to divide by zero.
+     */
+    public double divide(double a, double b) {
+        if (b == 0) {
+            throw new ArithmeticException("Cannot divide by zero");
+        }
+        return a / b;
+    }
+}
