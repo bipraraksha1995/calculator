@@ -96,6 +96,21 @@ jobs:
           report*.md
       continue-on-error: true
 
+    - name: Create Pull Request to Main
+      if: success()
+      run: |
+        if gh pr list --head ${GITHUB_REF_NAME} --base main | grep -q .; then
+        echo "PR already exists"
+        else
+          gh pr create \
+            --base main \
+            --head ${GITHUB_REF_NAME} \
+            --title "Auto PR: ${GITHUB_REF_NAME} → main" \
+            --body "Automated PR after QA success"
+        fi
+      env: 
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 # =========================
 # 🔹 PROD STAGE
 # =========================
