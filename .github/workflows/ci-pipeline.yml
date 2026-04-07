@@ -105,6 +105,9 @@ jobs:
     needs: qa
     if: github.ref == 'refs/heads/main'
 
+    environment:
+      name: production
+
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
