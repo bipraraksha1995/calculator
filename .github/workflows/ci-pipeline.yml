@@ -1,5 +1,9 @@
 name: DevSecOps Multi-Stage Pipeline
 
+permissions:
+  contents: read
+  issues: write   # Fix for ZAP GitHub issue error
+
 on:
   push:
     branches: ["main", "qa-*", "dev"]
@@ -36,7 +40,7 @@ jobs:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-         args: >
+        args: >
           -Dsonar.projectKey=bipraraksha1995_calculator
           -Dsonar.organization=bipraraksha1995
           -Dsonar.sources=.
@@ -54,26 +58,40 @@ jobs:
 # 🔹 QA STAGE
 # =========================
   qa:
-   runs-on: ubuntu-latest
-   needs: dev
-   if: startsWith(github.ref, 'refs/heads/qa-')
+    name: QA Stage (DAST + Security Validation)
+    runs-on: ubuntu-latest
+    needs: dev
+    if: startsWith(github.ref, 'refs/heads/qa-')
 
-   steps:
-   - uses: actions/checkout@v4
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
 
-   - name: Start Server
-     run: |
-       python3 -m http.server 8080 &
-       sleep 15
+    # Start a stable test server (instead of Java CLI app)
+    - name: Start Test Server
+      run: |
+        python3 -m http.server 8080 &
+        sleep 15
 
-   - name: Verify Server
-     run: curl -I http://127.0.0.1:8080
+    # Verify server is reachable (VERY IMPORTANT)
+    - name: Verify Server
+      run: curl --retry 5 --retry-delay 5 http://127.0.0.1:8080
 
-   - name: OWASP ZAP Scan
-     uses: zaproxy/action-full-scan@v0.10.0
-     with:
-      target: 'http://127.0.0.1:8080'
-      fail_action: false
+    # OWASP ZAP Scan (FIXED VERSION)
+    - name: OWASP ZAP Scan
+      uses: zaproxy/action-full-scan@v0.10.0
+      with:
+        target: 'http://127.0.0.1:8080'
+        fail_action: false
+
+    # Upload ZAP Report (optional but recommended)
+    - name: Upload ZAP Report
+      uses: actions/upload-artifact@v4
+      with:
+        name: zap-report
+        path: report_html.html
+      continue-on-error: true
+
 # =========================
 # 🔹 PROD STAGE
 # =========================
