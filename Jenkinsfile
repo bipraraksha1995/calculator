@@ -2,8 +2,8 @@ pipeline {
     agent any
 
     environment {
-        SONAR_TOKEN = credentials('sonar-token')
-        SNYK_TOKEN = credentials('snyk-token')
+        SONAR_TOKEN = credentials('sonar-test-token')
+        SNYK_TOKEN = credentials('snyk-test-token')
     }
 
     stages {
