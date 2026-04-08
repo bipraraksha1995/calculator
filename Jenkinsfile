@@ -57,12 +57,14 @@ pipeline {
                         }
                     }
                     steps {
+                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                         sh """
                         mvn sonar:sonar \
                         -Dsonar.projectKey=bipraraksha1995_calculator \
                         -Dsonar.organization=bipraraksha1995 \
                         -Dsonar.login=$SONAR_TOKEN
                         """
+                        }
                     }
                 }
 
