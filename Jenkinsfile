@@ -135,11 +135,11 @@ pipeline {
             }
             agent {
                 docker {
-                    image 'aquasec/trivy:latest'
+                    image 'aquasec/trivy:0.50.0'
                 }
             }
             steps {
-                sh 'trivy fs /workspace || true'
+                sh 'trivy fs . || true'
             }
         }
     }
