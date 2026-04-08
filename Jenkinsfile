@@ -80,7 +80,7 @@ pipeline {
                             catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                         sh '''
                         snyk auth $SNYK_TOKEN
-                        snyk test || true
+                        snyk test  --file=pom.xml --all-projects --detection-depth=3 || true
                         '''
                             }
                         }
