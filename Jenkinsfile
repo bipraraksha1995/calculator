@@ -80,6 +80,8 @@ pipeline {
                             catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                         sh '''
                         export SNYK_TOKEN=$SNYK_TOKEN
+                        export npm_config_cache=/tmp/.npm
+                        export HOME=/tmp
                         npx snyk auth
                         npx snyk test
                         '''
