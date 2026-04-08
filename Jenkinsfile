@@ -79,8 +79,13 @@ pipeline {
                         withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
                             catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                         sh '''
+                        export SNYK_TOKEN=$SNYK_TOKEN
+                        export MAVEN_CONFIG=/tmp/.m2
+                        export HOME=/tmp
+                        mkdir -p /tmp/.m2/repository
                         snyk auth $SNYK_TOKEN
-                        snyk test  --file=pom.xml || true
+                        snyk test --file=pom.xml || true
+                        snyk monitor --file=pom.xml
                         '''
                             }
                         }
