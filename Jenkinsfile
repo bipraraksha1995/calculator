@@ -74,11 +74,13 @@ pipeline {
                         }
                     }
                     steps {
-                        sh """
-                        npm install -g snyk
-                        snyk auth $SNYK_TOKEN
-                        snyk test || true
-                        """
+                        withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
+                        sh '''
+                        export SNYK_TOKEN=$SNYK_TOKEN
+                        npx snyk auth
+                        npx snyk test || true
+                        '''
+                        }
                     }
                 }
             }
