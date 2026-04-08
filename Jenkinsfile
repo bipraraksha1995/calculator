@@ -72,18 +72,15 @@ pipeline {
                 stage('Snyk (SCA)') {
                     agent {
                         docker {
-                            image 'node:18'
+                            image 'snyk/snyk:docker'
                         }
                     }
                     steps {
                         withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
                             catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                         sh '''
-                        export SNYK_TOKEN=$SNYK_TOKEN
-                        export npm_config_cache=/tmp/.npm
-                        export HOME=/tmp
-                        
-                        npx snyk test || true
+                        snyk auth $SNYK_TOKEN
+                        snyk test || true
                         '''
                             }
                         }
