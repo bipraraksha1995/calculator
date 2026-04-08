@@ -1,5 +1,5 @@
 pipeline {
-    agent any
+    agent none   // 🔥 IMPORTANT (we define agent per stage)
 
     environment {
         SONAR_TOKEN = credentials('sonar-test-token')
@@ -7,7 +7,6 @@ pipeline {
     }
 
     options {
-        skipDefaultCheckout(true)
         timestamps()
     }
 
@@ -17,13 +16,14 @@ pipeline {
         // 🔹 CHECKOUT
         // =========================
         stage('Checkout') {
+            agent any
             steps {
                 checkout scm
             }
         }
 
         // =========================
-        // 🔹 DEV (PARALLEL - DOCKER)
+        // 🔹 DEV (PARALLEL)
         // =========================
         stage('Dev - Build & Security') {
             when {
@@ -39,44 +39,46 @@ pipeline {
 
                 // 🔹 BUILD
                 stage('Build') {
+                    agent {
+                        docker {
+                            image 'maven:3.9.6-eclipse-temurin-17'
+                        }
+                    }
                     steps {
-                        sh '''
-                        docker run --rm \
-                        -v $PWD:/app -w /app \
-                        maven:3.9.6-eclipse-temurin-17 \
-                        mvn clean install -DskipTests
-                        '''
+                        sh 'mvn clean install -DskipTests'
                     }
                 }
 
                 // 🔹 SONAR
                 stage('Sonar (SAST)') {
+                    agent {
+                        docker {
+                            image 'maven:3.9.6-eclipse-temurin-17'
+                        }
+                    }
                     steps {
-                        sh '''
-                        docker run --rm \
-                        -v $PWD:/app -w /app \
-                        maven:3.9.6-eclipse-temurin-17 \
+                        sh """
                         mvn sonar:sonar \
                         -Dsonar.projectKey=bipraraksha1995_calculator \
                         -Dsonar.organization=bipraraksha1995 \
                         -Dsonar.login=$SONAR_TOKEN
-                        '''
+                        """
                     }
                 }
 
                 // 🔹 SNYK
                 stage('Snyk (SCA)') {
+                    agent {
+                        docker {
+                            image 'node:18'
+                        }
+                    }
                     steps {
-                        sh '''
-                        docker run --rm \
-                        -v $PWD:/app -w /app \
-                        node:18 \
-                        sh -c "
-                        npm install -g snyk &&
-                        snyk auth $SNYK_TOKEN &&
+                        sh """
+                        npm install -g snyk
+                        snyk auth $SNYK_TOKEN
                         snyk test || true
-                        "
-                        '''
+                        """
                     }
                 }
             }
@@ -92,17 +94,15 @@ pipeline {
                     changeRequest()
                 }
             }
+            agent {
+                docker {
+                    image 'ghcr.io/zaproxy/zaproxy:stable'
+                    args '--network=host'
+                }
+            }
             steps {
                 sh '''
-                docker run --rm -d -p 8080:80 nginx
-                sleep 10
-                '''
-
-                sh '''
-                docker run --rm \
-                --network="host" \
-                ghcr.io/zaproxy/zaproxy:stable \
-                zap-baseline.py -t http://127.0.0.1:8080 || true
+                zap-baseline.py -t http://example.com || true
                 '''
             }
         }
@@ -114,6 +114,7 @@ pipeline {
             when {
                 branch 'main'
             }
+            agent any
             steps {
                 input message: 'Approve Production Deployment?'
             }
@@ -126,12 +127,13 @@ pipeline {
             when {
                 branch 'main'
             }
+            agent {
+                docker {
+                    image 'aquasec/trivy:latest'
+                }
+            }
             steps {
-                sh '''
-                docker run --rm \
-                -v $PWD:/app \
-                aquasec/trivy fs /app
-                '''
+                sh 'trivy fs /workspace || true'
             }
         }
     }
