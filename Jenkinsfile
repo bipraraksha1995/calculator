@@ -72,7 +72,7 @@ pipeline {
                 stage('Snyk (SCA)') {
                     agent {
                         docker {
-                            image 'snyk/snyk:docker'
+                            image 'snyk/snyk:maven'
                         }
                     }
                     steps {
