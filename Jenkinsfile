@@ -6,55 +6,81 @@ pipeline {
         SNYK_TOKEN = credentials('snyk-test-token')
     }
 
+    options {
+        skipDefaultCheckout(true)
+        timestamps()
+    }
+
     stages {
 
         // =========================
-        // 🔹 DEV STAGE
+        // 🔹 CHECKOUT
         // =========================
-        stage('Dev - Build + SAST + SCA') {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        // =========================
+        // 🔹 DEV (PARALLEL)
+        // =========================
+        stage('Dev - Build & Security') {
             when {
                 anyOf {
                     branch 'dev'
                     branch 'main'
                     expression { env.BRANCH_NAME.startsWith('qa-') }
+                    changeRequest()
                 }
             }
-            steps {
-                git branch: "${env.BRANCH_NAME}", url: 'https://github.com/your-repo.git'
 
-                sh 'mvn clean install -DskipTests'
+            parallel {
 
-                // Sonar Scan
-                sh """
-                mvn sonar:sonar \
-                -Dsonar.projectKey=bipraraksha1995_calculator \
-                -Dsonar.organization=bipraraksha1995 \
-                -Dsonar.login=$SONAR_TOKEN
-                """
+                stage('Build') {
+                    steps {
+                        sh 'mvn clean install -DskipTests'
+                    }
+                }
 
-                // Snyk Scan
-                sh """
-                snyk auth $SNYK_TOKEN
-                snyk test || true
-                """
+                stage('Sonar (SAST)') {
+                    steps {
+                        sh """
+                        mvn sonar:sonar \
+                        -Dsonar.projectKey=bipraraksha1995_calculator \
+                        -Dsonar.organization=bipraraksha1995 \
+                        -Dsonar.login=$SONAR_TOKEN
+                        """
+                    }
+                }
+
+                stage('Snyk (SCA)') {
+                    steps {
+                        sh """
+                        snyk auth $SNYK_TOKEN
+                        snyk test || true
+                        """
+                    }
+                }
             }
         }
 
         // =========================
-        // 🔹 QA STAGE
+        // 🔹 QA (DAST)
         // =========================
         stage('QA - DAST (ZAP)') {
             when {
-                expression { env.BRANCH_NAME.startsWith('qa-') }
+                anyOf {
+                    expression { env.BRANCH_NAME.startsWith('qa-') }
+                    changeRequest()
+                }
             }
             steps {
-                // Start test server
                 sh '''
                 python3 -m http.server 8080 &
                 sleep 10
                 '''
 
-                // ZAP Scan (Docker)
                 sh '''
                 docker run --rm \
                 --network="host" \
@@ -65,7 +91,7 @@ pipeline {
         }
 
         // =========================
-        // 🔹 PROD STAGE
+        // 🔹 PROD APPROVAL
         // =========================
         stage('Approval for PROD') {
             when {
@@ -76,6 +102,9 @@ pipeline {
             }
         }
 
+        // =========================
+        // 🔹 PROD
+        // =========================
         stage('Prod - Security + Release') {
             when {
                 branch 'main'
@@ -83,17 +112,10 @@ pipeline {
             steps {
                 sh 'mvn clean package'
 
-                // Trivy Scan
                 sh '''
                 docker run --rm \
                 -v $PWD:/app \
                 aquasec/trivy fs /app
-                '''
-
-                // Nessus (optional trigger)
-                sh '''
-                curl -X POST "https://nessus-server:8834/scans" \
-                -H "X-ApiKeys: accessKey=xxx; secretKey=xxx"
                 '''
             }
         }
