@@ -23,7 +23,7 @@ pipeline {
         }
 
         // =========================
-        // 🔹 DEV (PARALLEL)
+        // 🔹 DEV (PARALLEL - DOCKER)
         // =========================
         stage('Dev - Build & Security') {
             when {
@@ -37,36 +37,53 @@ pipeline {
 
             parallel {
 
+                // 🔹 BUILD
                 stage('Build') {
                     steps {
-                        sh 'mvn clean install -DskipTests'
+                        sh '''
+                        docker run --rm \
+                        -v $PWD:/app -w /app \
+                        maven:3.9.6-eclipse-temurin-17 \
+                        mvn clean install -DskipTests
+                        '''
                     }
                 }
 
+                // 🔹 SONAR
                 stage('Sonar (SAST)') {
                     steps {
-                        sh """
+                        sh '''
+                        docker run --rm \
+                        -v $PWD:/app -w /app \
+                        maven:3.9.6-eclipse-temurin-17 \
                         mvn sonar:sonar \
                         -Dsonar.projectKey=bipraraksha1995_calculator \
                         -Dsonar.organization=bipraraksha1995 \
                         -Dsonar.login=$SONAR_TOKEN
-                        """
+                        '''
                     }
                 }
 
+                // 🔹 SNYK
                 stage('Snyk (SCA)') {
                     steps {
-                        sh """
-                        snyk auth $SNYK_TOKEN
+                        sh '''
+                        docker run --rm \
+                        -v $PWD:/app -w /app \
+                        node:18 \
+                        sh -c "
+                        npm install -g snyk &&
+                        snyk auth $SNYK_TOKEN &&
                         snyk test || true
-                        """
+                        "
+                        '''
                     }
                 }
             }
         }
 
         // =========================
-        // 🔹 QA (DAST)
+        // 🔹 QA (ZAP)
         // =========================
         stage('QA - DAST (ZAP)') {
             when {
@@ -77,7 +94,7 @@ pipeline {
             }
             steps {
                 sh '''
-                python3 -m http.server 8080 &
+                docker run --rm -d -p 8080:80 nginx
                 sleep 10
                 '''
 
@@ -103,15 +120,13 @@ pipeline {
         }
 
         // =========================
-        // 🔹 PROD
+        // 🔹 PROD (TRIVY)
         // =========================
         stage('Prod - Security + Release') {
             when {
                 branch 'main'
             }
             steps {
-                sh 'mvn clean package'
-
                 sh '''
                 docker run --rm \
                 -v $PWD:/app \
