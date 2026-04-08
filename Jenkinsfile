@@ -75,11 +75,13 @@ pipeline {
                     }
                     steps {
                         withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
+                            catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                         sh '''
                         export SNYK_TOKEN=$SNYK_TOKEN
                         npx snyk auth
-                        npx snyk test || true
+                        npx snyk test
                         '''
+                            }
                         }
                     }
                 }
